@@ -21,6 +21,13 @@ import org.springframework.stereotype.Component;
 import java.lang.reflect.Method;
 
 /**
+ * This class is an Aspect that handles MDC (Mapped Diagnostic Context) logging.
+ * It uses Spring's Aspect Oriented Programming (AOP) capabilities to intercept method calls
+ * that are annotated with the custom @MdcDot annotation.
+ * The Aspect adds a unique business code to the MDC before the method is executed,
+ * and removes it after the method has finished.
+ * This allows the business code to be included in all log messages that are generated during the method's execution.
+ *
  * @author YiHui
  * @date 2023/5/26
  */
@@ -31,10 +38,24 @@ public class MdcAspect implements ApplicationContextAware {
     private ExpressionParser parser = new SpelExpressionParser();
     private ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
 
+    /**
+     * Defines a pointcut for methods that are annotated with @MdcDot.
+     * The pointcut also matches if the class of the method is annotated with @MdcDot.
+     */
     @Pointcut("@annotation(MdcDot) || @within(MdcDot)")
     public void getLogAnnotation() {
     }
 
+    /**
+     * This advice is executed around the method calls that match the pointcut.
+     * It adds the business code to the MDC before the method is executed,
+     * and removes it after the method has finished.
+     * It also logs the execution time of the method.
+     *
+     * @param joinPoint the join point at which the advice is applied
+     * @return the result of the method call
+     * @throws Throwable if the method call throws an exception
+     */
     @Around("getLogAnnotation()")
     public Object handle(ProceedingJoinPoint joinPoint) throws Throwable {
         long start = System.currentTimeMillis();
@@ -53,6 +74,12 @@ public class MdcAspect implements ApplicationContextAware {
         }
     }
 
+    /**
+     * Adds the business code to the MDC if the method or its class is annotated with @MdcDot.
+     *
+     * @param joinPoint the join point at which the advice is applied
+     * @return true if the business code was added to the MDC, false otherwise
+     */
     private boolean addMdcCode(ProceedingJoinPoint joinPoint) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
@@ -68,6 +95,14 @@ public class MdcAspect implements ApplicationContextAware {
         return false;
     }
 
+    /**
+     * Loads the business code from the @MdcDot annotation.
+     * If the business code is a SpEL expression, it is evaluated in the context of the method parameters.
+     *
+     * @param key the business code or SpEL expression
+     * @param joinPoint the join point at which the advice is applied
+     * @return the business code
+     */
     private String loadBizCode(String key, ProceedingJoinPoint joinPoint) {
         if (StringUtils.isBlank(key)) {
             return "";
@@ -86,6 +121,13 @@ public class MdcAspect implements ApplicationContextAware {
 
     private ApplicationContext applicationContext;
 
+    /**
+     * Sets the ApplicationContext that this object runs in.
+     * Normally this call will be used to initialize the object.
+     *
+     * @param applicationContext the ApplicationContext object to be used by this object
+     * @throws BeansException in case of context initialization errors
+     */
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
